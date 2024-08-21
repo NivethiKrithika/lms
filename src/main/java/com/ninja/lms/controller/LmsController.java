@@ -41,6 +41,9 @@ import java.util.function.Function;
         @PostMapping(path="/batch")
         public ResponseEntity<String> saveBatch(@RequestBody LmsBatch batch, BindingResult bindingResult)
         {
+            Optional<LmsBatch> lmsBatch = lmsBatchRepo.findById(batch.getBatch_id());
+            if(lmsBatch.isPresent())
+                return ResponseEntity.badRequest().body("Batch record with id "+batch.getBatch_id()+ " already present, cannot allow duplicate entry");
             if(bindingResult.hasErrors())
                 return ResponseEntity.badRequest().body("validation errors found in batch details");
             lmsBatchRepo.save(batch);
@@ -91,6 +94,9 @@ import java.util.function.Function;
         @PostMapping(path="/program")
         public ResponseEntity<String> saveProgram(@RequestBody LmsProgram program,BindingResult bindingResult)
         {
+            Optional<LmsProgram> lmsProgram = lmsProgramRepo.findById(program.getProgram_id());
+            if(lmsProgram.isPresent())
+                return ResponseEntity.badRequest().body("Program record with id "+program.getProgram_id()+ " already present, cannot allow duplicate entry");
             if(bindingResult.hasErrors())
                 return ResponseEntity.badRequest().body("Validation errors found in program details");
             lmsProgramRepo.save(program);
