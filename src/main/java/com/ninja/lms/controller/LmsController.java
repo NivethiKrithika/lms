@@ -7,6 +7,7 @@ import com.ninja.lms.jpa.LmsProgramRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,17 +36,29 @@ import java.util.function.Function;
             if(batch.isPresent())
                 return batch;
             else
-                throw new RecordNotFoundException("Batch "+id+" not found");
+                throw new RecordNotFoundException("Batch id "+id+" not found");
         }
         @PostMapping(path="/batch")
-        public LmsBatch saveBatch(@RequestBody LmsBatch batch)
+        public ResponseEntity<String> saveBatch(@RequestBody LmsBatch batch, BindingResult bindingResult)
         {
-            return lmsBatchRepo.save(batch);
+            if(bindingResult.hasErrors())
+                return ResponseEntity.badRequest().body("validation errors found in batch details");
+            lmsBatchRepo.save(batch);
+            return ResponseEntity.ok("batch created successfully");
         }
         @PutMapping(path="/batch/{id}")
-        public LmsBatch updateBatch(@PathVariable Integer id,@RequestBody LmsBatch batch)
+        public ResponseEntity<String> updateBatch(@PathVariable Integer id,@RequestBody LmsBatch batch,BindingResult bindingresult) throws RecordNotFoundException
         {
-            return lmsBatchRepo.save(batch);
+
+            if(lmsBatchRepo.findById(id).isPresent()) {
+                if(bindingresult.hasErrors())
+                    return ResponseEntity.badRequest().body("Validation errors found in batch details");
+                lmsBatchRepo.save(batch);
+                return ResponseEntity.ok("Batch updated successfully");
+            }
+            else
+                throw new RecordNotFoundException("Batch id " +id+ " not found to update");
+
         }
         @DeleteMapping("/batch/{id}")
         public void deleteBatchById(@PathVariable Integer id) throws RecordNotFoundException
@@ -54,7 +67,7 @@ import java.util.function.Function;
             if(lmsBatch.isPresent())
                 lmsBatchRepo.deleteById(id);
             else
-                throw new RecordNotFoundException("Batch "+id+  " not found");
+                throw new RecordNotFoundException("Batch id "+id+  " not found to delete");
         }
         @DeleteMapping("/batch")
         public void deleteBatch()
@@ -67,23 +80,33 @@ import java.util.function.Function;
             return lmsProgramRepo.findAll();
         }
         @GetMapping(path="/program/{id}")
-        public Optional<LmsProgram> getProgramById(@PathVariable Integer id)
+        public Optional<LmsProgram> getProgramById(@PathVariable Integer id) throws RecordNotFoundException
         {
             Optional<LmsProgram> lmsProgram =  lmsProgramRepo.findById(id);
             if(lmsProgram.isPresent())
                 return lmsProgram;
             else
-                throw new RecordNotFoundException("Program "+id+" not found");
+                throw new RecordNotFoundException("Program id "+id+" not found");
         }
         @PostMapping(path="/program")
-        public LmsProgram saveProgram(@RequestBody LmsProgram program)
+        public ResponseEntity<String> saveProgram(@RequestBody LmsProgram program,BindingResult bindingResult)
         {
-            return lmsProgramRepo.save(program);
+            if(bindingResult.hasErrors())
+                return ResponseEntity.badRequest().body("Validation errors found in program details");
+            lmsProgramRepo.save(program);
+            return ResponseEntity.ok("Program created successfully");
         }
         @PutMapping(path="/program/{id}")
-        public LmsProgram updateProgram(@PathVariable Integer id,@RequestBody LmsProgram program)
+        public ResponseEntity<String> updateProgram(@PathVariable Integer id, @RequestBody LmsProgram program, BindingResult bindingresult) throws RecordNotFoundException
         {
-            return lmsProgramRepo.save(program);
+            if(lmsProgramRepo.findById(id).isPresent()) {
+                if(bindingresult.hasErrors())
+                    return ResponseEntity.badRequest().body("Validation errors found in program details");
+                lmsProgramRepo.save(program);
+                return ResponseEntity.ok("Program updated successfully");
+            }
+            else
+                throw new RecordNotFoundException("Program id " +id+ " not found to update");
         }
         @DeleteMapping("/program/{id}")
         public void deleteProgramById(@PathVariable Integer id) throws RecordNotFoundException
@@ -92,7 +115,7 @@ import java.util.function.Function;
             if(lmsProgram.isPresent())
                 lmsProgramRepo.deleteById(id);
             else
-                throw new RecordNotFoundException(("Program "+id+" not found"));
+                throw new RecordNotFoundException(("Program id "+id+" not found to delete"));
         }
         @DeleteMapping("/program")
         public void deleteProgram()
