@@ -122,6 +122,21 @@ import java.util.function.Function;
         {
             lmsProgramRepo.deleteAll();
         }
+        @GetMapping("/programName/{batchId}")
+        public ResponseEntity<String> getProgramName(@PathVariable Integer batchId) throws RecordNotFoundException
+        {
+            Optional<LmsBatch> lmsBatch = lmsBatchRepo.findById(batchId);
+            if(lmsBatch.isPresent())
+            {
+                Integer id = lmsBatch.get().getBatch_program_id();
+                Optional<LmsProgram> lmsProgram = lmsProgramRepo.findById(id);
+                return ResponseEntity.ok().body(lmsProgram.get().getProgram_name());
+
+            }
+            else
+                throw new RecordNotFoundException("batch "+batchId+" not found");
+
+        }
 
     }
 
