@@ -31,21 +31,27 @@ public class LmsBatch {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(unique = true)
     Integer batch_id;
-    @NotNull
+    @NotNull(message = "Batch name cannot be null")
     @Size(max =50, message = "batch name cannot be more than 50 chars long")
     String batch_name;
     @Size(max =50, message = "batch description cannot be more than 50 chars long")
     String batch_description;
-    @NotNull
+    @NotNull(message = "Batch status cannot be null")
     @Size(max =50, message = "batch status cannot be more than 50 chars long")
     String batch_status;
-    @NotNull
+    @NotNull(message = "program id cannot be null")
+    //Column(name = "batch_program_id")
     Integer batch_program_id;
-    @NotNull
+    @NotNull(message = "number of classes cannot be null")
     @Max(value = 10,message = "number of classes in batch has to less than or equal to 10")
     Integer batch_no_of_classes;
+    @NotNull(message ="creation time cannot be null")
     @PastOrPresent(message = "creation time of batch must be past or present")
     Timestamp creationTime;
+    @NotNull(message = "Creation time cannot be null")
     @PastOrPresent(message = "creation time of batch must be past or present")
     Timestamp last_mod_time;
+    @ManyToOne()
+    @JoinColumn(nullable = false,name = "batch_program_id", insertable=false, updatable=false)
+    private LmsProgram program;
 }

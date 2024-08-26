@@ -5,11 +5,16 @@ import com.ninja.lms.entity.LmsProgram;
 import com.ninja.lms.jpa.LmsBatchRepository;
 import com.ninja.lms.jpa.LmsProgramRepository;
 import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.*;
 
+import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -29,6 +34,7 @@ import java.util.function.Function;
             List<LmsBatch> batches = lmsBatchRepo.findAll();
             return ResponseEntity.ok(batches);
         }
+
         @GetMapping(path="/batch/{id}")
         public Optional<LmsBatch> getBatchById(@PathVariable Integer id) throws RecordNotFoundException
         {
@@ -38,37 +44,80 @@ import java.util.function.Function;
             else
                 throw new RecordNotFoundException("Batch id "+id+" not found");
         }
+
         @PostMapping(path="/batch")
-        public ResponseEntity<String> saveBatch(@RequestBody LmsBatch batch, BindingResult bindingResult)
-        {
-            Optional<LmsBatch> lmsBatch = lmsBatchRepo.findById(batch.getBatch_id());
-            if(lmsBatch.isPresent())
-                return ResponseEntity.badRequest().body("Batch record with id "+batch.getBatch_id()+ " already present, cannot allow duplicate entry");
-            if(bindingResult.hasErrors())
-                return ResponseEntity.badRequest().body("validation errors found in batch details");
-            lmsBatchRepo.save(batch);
-            return ResponseEntity.ok("batch created successfully");
-        }
-        @PutMapping(path="/batch/{id}")
-        public ResponseEntity<String> updateBatch(@PathVariable Integer id,@RequestBody LmsBatch batch,BindingResult bindingresult) throws RecordNotFoundException
-        {
-
-            if(lmsBatchRepo.findById(id).isPresent()) {
-                if(bindingresult.hasErrors())
-                    return ResponseEntity.badRequest().body("Validation errors found in batch details");
-                lmsBatchRepo.save(batch);
-                return ResponseEntity.ok("Batch updated successfully");
+        public ResponseEntity<String> saveBatch(@RequestBody @Valid LmsBatch batch, BindingResult bindingResult) throws RuntimeException{
+            try {
+            // Optional<LmsBatch> lmsBatch = lmsBatchRepo.findById(batch.getBatch_id());
+            //if(lmsBatch.isPresent())
+            //  return ResponseEntity.badRequest().body("Batch record with id "+batch.getBatch_id()+ " already present, cannot allow duplicate entry");
+            if (bindingResult.hasErrors()) {
+                List<ObjectError> allErrors = bindingResult.getAllErrors();
+                StringBuilder error_message = new StringBuilder();
+                for ( ObjectError o : allErrors) {
+                    error_message.append(o.getDefaultMessage());
+                    error_message.append("\n");
+                }
+                return ResponseEntity.badRequest().body(error_message.toString());
             }
-            else
-                throw new RecordNotFoundException("Batch id " +id+ " not found to update");
+                lmsBatchRepo.save(batch);
+                return ResponseEntity.ok("batch created successfully");
+            }
+            catch(RuntimeException e ) {
 
+                    System.out.println(e.getMessage());
+                    if(e.getMessage().contains("foreign key constraint"))
+                        throw new RuntimeException("This record violates the foreign key constraint. There is no matching record with program id "+batch.getBatch_program_id()+" in program table");
+                    else if(e.getMessage().contains("violates unique constraint"))
+                        throw new RuntimeException("Duplicate record. This record violates the unique constraint as batch name " + batch.getBatch_name() + " and batch program id " + batch.getBatch_program_id() + " is already mapped to a different batch id");
+                    else
+                        throw new RuntimeException(e.getMessage());
+                 }
+            }
+
+        @PutMapping(path="/batch/{id}")
+        public ResponseEntity<String> updateBatch(@PathVariable Integer id,@RequestBody @Valid LmsBatch batch,BindingResult bindingResult) throws RecordNotFoundException
+        {
+            try {
+                if (lmsBatchRepo.findById(id).isPresent()) {
+                    // Optional<LmsBatch> lmsBatch = lmsBatchRepo.findById(batch.getBatch_id());
+                    //if(lmsBatch.isPresent())
+                    //  return ResponseEntity.badRequest().body("Batch record with id "+batch.getBatch_id()+ " already present, cannot allow duplicate entry");
+                    if (bindingResult.hasErrors()) {
+                        List<ObjectError> allErrors = bindingResult.getAllErrors();
+                        StringBuilder error_message = new StringBuilder();
+                        for (ObjectError o : allErrors) {
+                            error_message.append(o.getDefaultMessage());
+                            error_message.append("\n");
+                        }
+                        return ResponseEntity.badRequest().body(error_message.toString());
+                    }
+                    batch.setBatch_id(id);
+                    lmsBatchRepo.save(batch);
+                    return ResponseEntity.ok("batch updated successfully");
+                } else {
+                    throw new RecordNotFoundException("Batch id " + id + " not found to update");
+                }
+            }
+            catch(RuntimeException e ) {
+
+                System.out.println(e.getMessage());
+                if(e.getMessage().contains("foreign key constraint"))
+                    throw new RuntimeException("This record violates the foreign key constraint. There is no matching record with program id "+batch.getBatch_program_id()+" in program table");
+                else if(e.getMessage().contains("violates unique constraint"))
+                    throw new RuntimeException("Duplicate record. This record violates the unique constraint as batch name " + batch.getBatch_name() + " and batch program id " + batch.getBatch_program_id() + " is already mapped to a different batch id");
+                else
+                    throw new RuntimeException(e.getMessage());
+            }
         }
         @DeleteMapping("/batch/{id}")
-        public void deleteBatchById(@PathVariable Integer id) throws RecordNotFoundException
+        public ResponseEntity<String> deleteBatchById(@PathVariable Integer id) throws RecordNotFoundException
         {
             Optional<LmsBatch> lmsBatch = lmsBatchRepo.findById(id);
-            if(lmsBatch.isPresent())
+            if(lmsBatch.isPresent()) {
                 lmsBatchRepo.deleteById(id);
+                return ResponseEntity.ok("Batch deleted successfully");
+            }
             else
                 throw new RecordNotFoundException("Batch id "+id+  " not found to delete");
         }
@@ -92,34 +141,67 @@ import java.util.function.Function;
                 throw new RecordNotFoundException("Program id "+id+" not found");
         }
         @PostMapping(path="/program")
-        public ResponseEntity<String> saveProgram(@RequestBody LmsProgram program,BindingResult bindingResult)
+        public ResponseEntity<String> saveProgram(@RequestBody @Valid LmsProgram program, BindingResult bindingResult)
         {
-            Optional<LmsProgram> lmsProgram = lmsProgramRepo.findById(program.getProgram_id());
-            if(lmsProgram.isPresent())
-                return ResponseEntity.badRequest().body("Program record with id "+program.getProgram_id()+ " already present, cannot allow duplicate entry");
-            if(bindingResult.hasErrors())
-                return ResponseEntity.badRequest().body("Validation errors found in program details");
-            lmsProgramRepo.save(program);
-            return ResponseEntity.ok("Program created successfully");
+            try {
+                if (bindingResult.hasErrors()) {
+                    List<ObjectError> allErrors = bindingResult.getAllErrors();
+                    StringBuilder error_message = new StringBuilder();
+                    for (ObjectError o : allErrors) {
+                        FieldError f = (FieldError)o;
+                        error_message.append(f.getDefaultMessage());
+                        error_message.append("\n");
+                    }
+                    return ResponseEntity.badRequest().body(error_message.toString());
+                }
+                lmsProgramRepo.save(program);
+                return ResponseEntity.ok("Program created successfully");
+            }
+            catch(RuntimeException e)
+            {
+                if(e.getMessage().contains("violates unique constraint"))
+                    throw new RuntimeException("Duplicate record. This record violates the unique constraint as program name " + program.getProgram_name()  + " is already present");
+                else
+                    throw new RuntimeException(e.getMessage());
+            }
         }
         @PutMapping(path="/program/{id}")
-        public ResponseEntity<String> updateProgram(@PathVariable Integer id, @RequestBody LmsProgram program, BindingResult bindingresult) throws RecordNotFoundException
+        public ResponseEntity<String> updateProgram(@PathVariable Integer id, @RequestBody @Valid LmsProgram program, BindingResult bindingResult) throws RuntimeException
         {
-            if(lmsProgramRepo.findById(id).isPresent()) {
-                if(bindingresult.hasErrors())
-                    return ResponseEntity.badRequest().body("Validation errors found in program details");
-                lmsProgramRepo.save(program);
-                return ResponseEntity.ok("Program updated successfully");
+            try {
+                if (lmsProgramRepo.findById(id).isPresent()) {
+                    if (bindingResult.hasErrors()) {
+                        List<ObjectError> allErrors = bindingResult.getAllErrors();
+                        StringBuilder error_message = new StringBuilder();
+                        for (ObjectError o : allErrors) {
+                            error_message.append(o.getDefaultMessage());
+                            error_message.append("\n");
+                        }
+                        return ResponseEntity.badRequest().body(error_message.toString());
+                    }
+                    program.setProgram_id(id);
+                    lmsProgramRepo.save(program);
+                    return ResponseEntity.ok("Program updated successfully");
+                } else
+                    throw new RecordNotFoundException("Program id " + id + " not found to update");
             }
-            else
-                throw new RecordNotFoundException("Program id " +id+ " not found to update");
+            catch(RuntimeException e)
+            {
+                if(e.getMessage().contains("violates unique constraint"))
+                    throw new RuntimeException("Duplicate record. This record violates the unique constraint as program name " + program.getProgram_name()  + " is already present");
+                else
+                    throw new RuntimeException(e.getMessage());
+            }
+
         }
         @DeleteMapping("/program/{id}")
-        public void deleteProgramById(@PathVariable Integer id) throws RecordNotFoundException
+        public ResponseEntity<String> deleteProgramById(@PathVariable Integer id) throws RecordNotFoundException
         {
             Optional<LmsProgram> lmsProgram =  lmsProgramRepo.findById(id);
-            if(lmsProgram.isPresent())
+            if(lmsProgram.isPresent()) {
                 lmsProgramRepo.deleteById(id);
+                return ResponseEntity.ok("Program deleted successfully");
+            }
             else
                 throw new RecordNotFoundException(("Program id "+id+" not found to delete"));
         }
@@ -128,15 +210,17 @@ import java.util.function.Function;
         {
             lmsProgramRepo.deleteAll();
         }
-        @GetMapping("/programName/{batchId}")
+       @GetMapping("/programName/{batchId}")
         public ResponseEntity<String> getProgramName(@PathVariable Integer batchId) throws RecordNotFoundException
         {
-            Optional<LmsBatch> lmsBatch = lmsBatchRepo.findById(batchId);
-            if(lmsBatch.isPresent())
+              Optional<LmsBatch> lmsBatch = lmsBatchRepo.findById(batchId);
+              if(lmsBatch.isPresent())
             {
-                Integer id = lmsBatch.get().getBatch_program_id();
-                Optional<LmsProgram> lmsProgram = lmsProgramRepo.findById(id);
-                return ResponseEntity.ok().body(lmsProgram.get().getProgram_name());
+                return ResponseEntity.ok(lmsBatch.get().getProgram().getProgram_name());
+          //      Integer id = lmsBatch.get().getBatch_program_id();
+            //    Optional<LmsProgram> lmsProgram = lmsProgramRepo.findById(id);
+              //  return ResponseEntity.ok().body(lmsProgram.get().getProgram_name());
+
 
             }
             else
